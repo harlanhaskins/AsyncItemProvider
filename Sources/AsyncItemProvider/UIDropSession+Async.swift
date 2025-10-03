@@ -9,6 +9,10 @@
 import UIKit
 import UniformTypeIdentifiers
 
+@available(iOS 17.0, *)
+@available(visionOS 1.0, *)
+@available(watchOS, unavailable)
+@available(tvOS, unavailable)
 extension UIDropSession {
     /// Creates a task that asynchronously loads objects of the specified class from the drop session.
     ///
