@@ -31,14 +31,14 @@ import Foundation
 /// }
 /// ```
 ///
-/// - Note: The generic type `T` must conform to `Sendable` to ensure thread-safe transfer
+/// - Note: The generic type `Value` must conform to `Sendable` to ensure thread-safe transfer
 ///   across concurrency domains.
-public struct ItemLoadTask<T: Sendable> {
+public struct ItemLoadTask<Value: Sendable, Failure: Error> {
     /// The asynchronous task that performs the loading operation.
     ///
     /// You can await this task's `value` property to retrieve the loaded item,
     /// or call `cancel()` to cancel the operation.
-    public var task: Task<T, Error>
+    public var task: Task<Value, Failure>
 
     /// The progress object tracking the loading operation.
     ///
@@ -46,18 +46,28 @@ public struct ItemLoadTask<T: Sendable> {
     /// or integrate with parent progress objects.
     public var progress: Progress
 
-    /// Creates an `ItemLoadTask` by wrapping a progress-based operation with Swift concurrency.
-    ///
-    /// This initializer takes a function that accepts a continuation and returns a `Progress` object,
-    /// wrapping it into a task with integrated progress tracking.
-    ///
-    /// - Parameter function: A closure that takes a `CheckedContinuation` and returns a `Progress` object.
-    ///   The closure should initiate an asynchronous operation and resume the continuation when complete.
     @MainActor
-    internal init(wrappingProgress function: @escaping (CheckedContinuation<T, Error>) -> Progress) {
+    internal init(
+        wrappingProgress function: @escaping (CheckedContinuation<Value, Error>) -> Progress
+    ) where Failure == Error {
         let progress = Progress(totalUnitCount: 1)
         let task = Task.immediateOnMain {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Value, Error>) in
+                let childProgress = function(continuation)
+                progress.addChild(childProgress, withPendingUnitCount: 1)
+            }
+        }
+        self.task = task
+        self.progress = progress
+    }
+
+    @MainActor
+    internal init(
+        wrappingProgress function: @escaping (CheckedContinuation<Value, Never>) -> Progress
+    ) where Failure == Never {
+        let progress = Progress(totalUnitCount: 1)
+        let task = Task.immediateOnMain {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Value, Never>) in
                 let childProgress = function(continuation)
                 progress.addChild(childProgress, withPendingUnitCount: 1)
             }

@@ -40,7 +40,7 @@ extension NSItemProvider {
     /// - Throws: `ItemLoadingError.noData` if no data is returned
     /// - Throws: Any error from the underlying loading operation.
     @MainActor
-    public func dataLoadTask(for type: UTType) -> ItemLoadTask<Data> {
+    public func dataLoadTask(for type: UTType) -> ItemLoadTask<Data, Error> {
         ItemLoadTask { continuation in
             self.loadDataRepresentation(for: type) { data, error in
                 if let error {
@@ -83,7 +83,7 @@ extension NSItemProvider {
     @MainActor
     public func objectLoadTask<Object>(
         for object: Object.Type
-    ) -> ItemLoadTask<Object> where Object: NSItemProviderReading {
+    ) -> ItemLoadTask<Object, Error> where Object: NSItemProviderReading {
         ItemLoadTask { continuation in
             self.loadObject(ofClass: Object.self) { object, error in
                 if let error {
@@ -150,7 +150,7 @@ extension NSItemProvider {
         for type: UTType,
         openInPlace: Bool = false,
         temporaryDirectory: URL? = nil
-    ) -> ItemLoadTask<LoadedFile> {
+    ) -> ItemLoadTask<LoadedFile, Error> {
         ItemLoadTask { continuation in
             self.loadFileRepresentation(
                 for: type,
