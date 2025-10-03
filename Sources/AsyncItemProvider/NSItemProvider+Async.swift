@@ -11,18 +11,6 @@ import UniformTypeIdentifiers
 extension NSItemProvider {
     static let defaultTemporaryDirectory = URL.temporaryDirectory.appending(path: "AsyncItemProvider-TemporaryFiles")
 
-    @MainActor
-    private func wrapProgress<T>(_ function: @escaping (CheckedContinuation<T, Error>) -> Progress) -> ItemLoadTask<T> {
-        let progress = Progress(totalUnitCount: 1)
-        let task = Task.immediateOnMain {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
-                let childProgress = function(continuation)
-                progress.addChild(childProgress, withPendingUnitCount: 1)
-            }
-        }
-        return ItemLoadTask(task: task, progress: progress)
-    }
-
     /// Creates a task that asynchronously loads a data representation for the specified type.
     ///
     /// This method wraps `NSItemProvider.loadDataRepresentation(forTypeIdentifier:completionHandler:)`
@@ -53,7 +41,7 @@ extension NSItemProvider {
     /// - Throws: Any error from the underlying loading operation.
     @MainActor
     public func dataLoadTask(for type: UTType) -> ItemLoadTask<Data> {
-        wrapProgress { continuation in
+        ItemLoadTask { continuation in
             self.loadDataRepresentation(for: type) { data, error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -96,7 +84,7 @@ extension NSItemProvider {
     public func objectLoadTask<Object>(
         for object: Object.Type
     ) -> ItemLoadTask<Object> where Object: NSItemProviderReading {
-        wrapProgress { continuation in
+        ItemLoadTask { continuation in
             self.loadObject(ofClass: Object.self) { object, error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -163,7 +151,7 @@ extension NSItemProvider {
         openInPlace: Bool = false,
         temporaryDirectory: URL? = nil
     ) -> ItemLoadTask<LoadedFile> {
-        wrapProgress { continuation in
+        ItemLoadTask { continuation in
             self.loadFileRepresentation(
                 for: type,
                 openInPlace: openInPlace

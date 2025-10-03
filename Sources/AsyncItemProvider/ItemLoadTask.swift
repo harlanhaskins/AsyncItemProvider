@@ -45,4 +45,24 @@ public struct ItemLoadTask<T: Sendable> {
     /// This can be used to observe progress updates, display progress UI,
     /// or integrate with parent progress objects.
     public var progress: Progress
+
+    /// Creates an `ItemLoadTask` by wrapping a progress-based operation with Swift concurrency.
+    ///
+    /// This initializer takes a function that accepts a continuation and returns a `Progress` object,
+    /// wrapping it into a task with integrated progress tracking.
+    ///
+    /// - Parameter function: A closure that takes a `CheckedContinuation` and returns a `Progress` object.
+    ///   The closure should initiate an asynchronous operation and resume the continuation when complete.
+    @MainActor
+    internal init(wrappingProgress function: @escaping (CheckedContinuation<T, Error>) -> Progress) {
+        let progress = Progress(totalUnitCount: 1)
+        let task = Task.immediateOnMain {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
+                let childProgress = function(continuation)
+                progress.addChild(childProgress, withPendingUnitCount: 1)
+            }
+        }
+        self.task = task
+        self.progress = progress
+    }
 }
